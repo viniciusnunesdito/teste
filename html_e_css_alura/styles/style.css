@@ -148,3 +148,27 @@ strong:hover {
         justify-content: center;
     }
 }
+
+@MEDIA (max-width: 800px) {
+    .apresentacao {
+        flex-direction: column-reverse;
+        padding: 5%;
+    }
+
+    .apresentacao__conteudo {
+        width: auto;
+    }
+
+    .cabecalho {
+        padding: 10%;
+        text-align: center;
+    }
+
+    .cabecalho__menu {
+        justify-content: center;
+    }
+
+    .apresentacao__links__link {
+        width: 75%;
+    }
+}
