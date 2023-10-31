@@ -1,0 +1,635 @@
+const snd_click = './snd/click.mp3';
+const snd_inicio = './snd/inicio.mp3';
+const snd_risada = './snd/risada.mp3';
+const snd_palmas = './snd/palmas.mp3';
+let jogo = {
+    matriz: [],  // matriz de jogo (contém 0, 1 ou 5)
+    jogador: -1,  // jogador: 1 (usuário), 2 (cpu), 0 introdução e -1 pausa
+    rodadas: 0,
+    posvenc: [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6],  // Posição vencedora na matriz
+              [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]],
+    nrovenc: -1  // linha, coluna ou diagonal vencedora 0 a 7 (-1 empate ou em jogo)
+}
+let cron = {  // cronômetro
+    min: 0,
+    seg: 0,
+    tempo: null  // armazena o ID da função cronometro para pausar o tempo
+}
+
+const bts = document.getElementById('botoes');
+bts.addEventListener('click', eventos); // Aqui pelo que entendi um "chamador de eventos" foi interligado à uma div que têm todos os botões do jogo
+// dentro. O primeiro parâmetro é o evento que deve acontecer para que o "chamador" seja ativado. O segundo parâmetro é a função que será ativa
+// quando o evento acontecer, nesse caso 'click', que é o clique do mouse.
+
+function eventos(pev) {
+    if (!(pev.target.nodeName === 'BUTTON')) { // Só executará se o nomeName (pelo que entendi até agora é tudo que tem no html, seja tags ou textos)
+        //or diferente de "BUTTON". No caso, por estar tudo em maiúsuculo se trata de uma tag do html.
+        return; // Finaliza essa função sem retornar valor nenhum.
+    }
+    if (pev.target.id === 'iniciar' && jogo.jogador !== 0) {
+        clearInterval(cron.tempo);  // remove a função do cronômetro
+        som(snd_inicio, 1, 1.2);
+        jogo.jogador = 0;
+        cron.min = cron.seg = 0;
+        document.getElementById('cron').innerHTML = '00:00';
+        for (let i = 0; i < 9; i++) {
+            document.getElementById('b' + i).style.backgroundColor = 'orange';
+        }
+        inicio3();
+    } else {
+        if (jogo.jogador === 1) {
+            let bt = pev.target.id[1];  // calcula o nro. do botão pressionado (0 a 8). Esse número na verdade é a posição dentro do id do botão clicado
+            // que você quer. Caso fosse [0], pegaria a primeira posição da string, nesse caso "b", mas o interessante é a posição 1, pois são os
+            // números que trocam nesses ids das posições, não o b.
+            let lin = Math.floor(bt / 3);  // calcula lin (matriz de jogo) do botão press. Resultado será sempre 0, 1 ou 2.
+            let col = bt % 3;  // calcula col (matriz de jogo) do botão press. Resultado será sempre 0, 1 ou 2.
+            if (jogo.matriz[lin][col] === 0) {
+                som(snd_click, 1, 1.2);
+                document.getElementById(pev.target.id).innerHTML = 'X';
+                jogo.matriz[lin][col] = 1;  // insere na matriz (lin, col) o valor 1 (usuário)
+                jogo.rodadas++;  // uma rodada a mais
+                jogo.jogador = 2;  // cpu (2) é a próxima a jogar 
+                fimJogo();  // verifica fim do jogo após a jogada do usuário
+            }
+        }
+    }
+}
+
+// Programar IA da CPU, seguindo os seguintes passos:
+// 1) Tentar ganhar se possível.
+// 2) Se não for possível ganhar, evitar que o usuário ganhe.
+// 3) Executar 1 e 2, nessa ordem, em 70% das jogadas.
+// 4) Se não for possível executar 1 e 2, jogar de forma aleatória (já implementada).
+
+// IA
+function cpu() {
+    let lin, col;
+    let aleatorio = Math.floor(Math.random() * 100);
+    let ganhar = false;
+    let impossivel = false;
+    let analise = [];
+    let contador = 0;
+    let lista = [];
+    let vitoria = -1;
+    let derrota = -1;
+    let marcar = 0;
+    let estrategia = 0;
+
+    // ANÁLISE DE JOGO
+
+    analise.push(jogo.matriz[0][0] + jogo.matriz[0][1] + jogo.matriz[0][2]);
+    analise.push(jogo.matriz[1][0] + jogo.matriz[1][1] + jogo.matriz[1][2]);
+    analise.push(jogo.matriz[2][0] + jogo.matriz[2][1] + jogo.matriz[2][2]);
+    analise.push(jogo.matriz[0][0] + jogo.matriz[1][0] + jogo.matriz[2][0]);
+    analise.push(jogo.matriz[0][1] + jogo.matriz[1][1] + jogo.matriz[2][1]);
+    analise.push(jogo.matriz[0][2] + jogo.matriz[1][2] + jogo.matriz[2][2]);
+    analise.push(jogo.matriz[0][0] + jogo.matriz[1][1] + jogo.matriz[2][2]);
+    analise.push(jogo.matriz[0][2] + jogo.matriz[1][1] + jogo.matriz[2][0]);
+
+    // Passando a array de duas dimensões para uma só para facilitar as marcações    
+    for (let x = 0; x < 3; x++) {
+        for (let y = 0; y < 3; y++) {
+        lista.push(jogo.matriz[x][y]);
+        }
+    }
+
+    // Impossível perder
+    if (jogo.rodadas <= 3 || (jogo.rodadas === 4 && lista[4] === 0)) {
+        ganhar = true;
+    }
+
+    // GARFO
+    // for (let j = 0; j < 9; j++) {
+    //     console.log("Prevendo garfo...")
+    //     // Previsão de onde jogar para dar garfo
+    //     if (lista[j] === 0) {
+    //         console.log("Analisando possibilidade de garfo");
+    //         lista_garfo[j] = 5;
+    //         analise_garfo.push(jogo.matriz[0][0] + jogo.matriz[0][1] + jogo.matriz[0][2]);
+    //         analise_garfo.push(jogo.matriz[1][0] + jogo.matriz[1][1] + jogo.matriz[1][2]);
+    //         analise_garfo.push(jogo.matriz[2][0] + jogo.matriz[2][1] + jogo.matriz[2][2]);
+    //         analise_garfo.push(jogo.matriz[0][0] + jogo.matriz[1][0] + jogo.matriz[2][0]);
+    //         analise_garfo.push(jogo.matriz[0][1] + jogo.matriz[1][1] + jogo.matriz[2][1]);
+    //         analise_garfo.push(jogo.matriz[0][2] + jogo.matriz[1][2] + jogo.matriz[2][2]);
+    //         analise_garfo.push(jogo.matriz[0][0] + jogo.matriz[1][1] + jogo.matriz[2][2]);
+    //         analise_garfo.push(jogo.matriz[0][2] + jogo.matriz[1][1] + jogo.matriz[2][0]);
+    //         for (let i = 0; i < 8; i++) {
+    //             if (analise_garfo[i] === 10) {
+    //                 som(snd_palmas, 0.8, 1);
+    //                 contador_garfo = contador_garfo + 1;
+    //                 if (contador_garfo > 1) {
+    //                     garfo = i;
+    //                     ganhar = true;
+    //                     console.log("Há possibilidade de garfo, ele está na posição: " + garfo);
+    //                 }
+    //             } 
+    //         }
+    //         contador_garfo = 0;
+    //     }
+    //     lista_garfo = lista;
+    // }
+
+    // UMA JOGADA PARA GANHAR OU PERDER
+    for (let i = 0; i < 8; i++) {
+        // Um passo da vitória
+        if (analise[i] === 10) {
+            som(snd_palmas, 0.8, 1);
+            vitoria = i; // onde jogar para ganhar
+            ganhar = true;
+        } 
+        
+        // Um passo da derrota
+        else if (analise[i] === 2) {
+            som(snd_risada, 1, 1.4);
+            derrota = i; // onde evitar a derrota
+            impossivel = true;
+            contador += 1;
+        }
+    }
+
+    // Se não estiver a um passo da derrota ou se houver mais de um passo para derrota.
+    if (contador !== 1){
+        impossivel = false;
+    }
+
+    if (vitoria === -1 && impossivel) {
+        ganhar = false;
+    }
+
+    console.log("Rodada: " + jogo.rodadas);
+    console.log("Aleatoriedade: " + aleatorio + "%");
+    console.log("Ganhar: " + ganhar);
+    console.log("Evitar ganhar: " + impossivel);
+
+    // ESTRATÉGIAS DE JOGO
+
+    // Jogar para ganhar
+    if (ganhar && aleatorio < 70) {
+        
+        // GANHAR NESTE ROUND
+        if (vitoria !== -1) {
+            console.log("Ganhar neste round")
+            let linha = jogo.posvenc[vitoria];
+            
+            for (let v of linha){
+                if (lista[v] === 0){
+                    marcar = v;
+                }
+            }
+
+            if (marcar < 3) {
+                lin = 0;
+            }
+            else if (marcar > 5) {
+                lin = 2;
+            }
+            else {
+                lin = 1;
+            }
+
+            if (marcar === 0 || marcar === 3 || marcar === 6) {
+                col = 0;
+            }
+            else if (marcar === 1 || marcar == 4 || marcar == 7) {
+                col = 1;
+            }
+            else {
+                col = 2;
+            }
+        }
+
+        //PRIMEIRA JOGADA
+        else if (jogo.rodadas === 0) {
+            console.log("Primeiro a jogar")
+            array = [0, 2, 6, 8];
+            for (let i = array.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [array[i], array[j]] = [array[j], array[i]];
+              marcar = array[i];
+            }
+
+            if (marcar < 3) {
+                lin = 0;
+            }
+            else if (marcar > 5) {
+                lin = 2;
+            }
+            else {
+                lin = 1;
+            }
+
+            if (marcar === 0 || marcar === 3 || marcar === 6) {
+                col = 0;
+            }
+            else if (marcar === 1 || marcar == 4 || marcar == 7) {
+                col = 1;
+            }
+            else {
+                col = 2;
+            }
+        }
+        
+        else if (jogo.rodadas === 1) {
+            if (lista[4] === 0) {
+                console.log("Usando o centro");
+                marcar = 4;
+            }
+
+            else {
+                array = [0, 2, 6, 8];
+                do{
+                    for (let i = array.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [array[i], array[j]] = [array[j], array[i]];
+                        marcar = array[i];
+                    }
+                } while(lista[marcar] !== 0);{
+                }
+
+            }
+
+                if (marcar < 3) {
+                    lin = 0;
+                }
+                else if (marcar > 5) {
+                    lin = 2;
+                }
+                else {
+                    lin = 1;
+                }
+
+                if (marcar === 0 || marcar === 3 || marcar === 6) {
+                    col = 0;
+                }
+                else if (marcar === 1 || marcar == 4 || marcar == 7) {
+                    col = 1;
+                }
+                else {
+                    col = 2;
+                }
+        }
+
+        else if (jogo.rodadas === 2) {
+            if(lista[4] === 1) {
+                console.log("Linha da rodada 2 se o centro for 1")
+                if (lista[0] === 5) {
+                    marcar = 8;
+                }
+                else if (lista[2] === 5) {
+                    marcar = 6;
+                }
+
+                else if (lista [6] === 5) {
+                    marcar = 2;
+                }
+
+                else {
+                    marcar = 0;
+                }
+                }
+
+                else if (lista[1] === 1 || lista[3] === 1 || lista[5] === 1 || lista[7] === 1){
+                    estrategia = 1;
+                    console.log("Linha da rodada 2 se else")
+                    console.log(lista);
+                    if (lista[0] === 5) {
+                        if (lista[1] === 1) {
+                            marcar = 6;
+                        }
+                        else if (lista[3] === 1) {
+                            marcar = 2;
+                        }
+                        else {
+                            marcar = 6;
+                        }
+                    }
+
+                    else if (lista[2] === 5) {
+                        if (lista[1] === 1) {
+                            marcar = 8;
+                        }
+                        else if (lista[5] === 1) {
+                            marcar = 0;
+                        }
+                        else {
+                            marcar = 8;
+                        }
+                    }
+
+                    else if (lista[6] === 5) {
+                        if (lista[3] === 1) {
+                            marcar = 8;
+                        }
+                        else if (lista[7] === 1) {
+                            marcar = 0;
+                        }
+                        else {
+                            marcar = 8;
+                        }
+                    }
+
+                    else if (lista[8] === 5) {
+                        if (lista[5] === 1) {
+                            marcar = 6;
+                        }
+                        else if (lista[7] === 1) {
+                            marcar = 2;
+                        }
+                        else {
+                            marcar = 6;
+                        }
+                    }
+                }
+
+                else {
+                    array = [0, 2, 6, 8];
+                    do{
+                        for (let i = array.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [array[i], array[j]] = [array[j], array[i]];
+                            marcar = array[i];
+                        }
+                    } while(lista[marcar] !== 0);{
+                    }
+                }
+
+                if (marcar < 3) {
+                    lin = 0;
+                }
+                else if (marcar > 5) {
+                    lin = 2;
+                }
+                else {
+                    lin = 1;
+                }
+    
+                if (marcar === 0 || marcar === 3 || marcar === 6) {
+                    col = 0;
+                }
+                else if (marcar === 1 || marcar == 4 || marcar == 7) {
+                    col = 1;
+                }
+                else {
+                    col = 2;
+                }
+            }
+
+        else if (jogo.rodadas === 3) {
+            // Evitar vitória do humano
+            console.log("Evitando a derrota sem colocar nos cantos")
+            array = [1, 3, 5, 7];
+            do{
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                    marcar = array[i];
+                }
+            } while(lista[marcar] !== 0);{
+            }
+
+            console.log("Posição escolhida: " + marcar);
+
+            if (marcar < 3) {
+                lin = 0;
+            }
+            else if (marcar > 5) {
+                lin = 2;
+            }
+            else {
+                lin = 1;
+            }
+
+            if (marcar === 0 || marcar === 3 || marcar === 6) {
+                col = 0;
+            }
+            else if (marcar === 1 || marcar == 4 || marcar == 7) {
+                col = 1;
+            }
+            else {
+                col = 2;
+            }
+        }
+
+        else if (jogo.rodadas === 4) {
+            if (estrategia === 1 && lista[4] === 0) {
+                marcar = 4;
+            }
+
+            else {
+            array = [0, 2, 6, 8];
+                    do{
+                        for (let i = array.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [array[i], array[j]] = [array[j], array[i]];
+                            marcar = array[i];
+                        }
+                    } while(lista[marcar] !== 0);{
+                    }
+            }
+
+            if (marcar < 3) {
+                lin = 0;
+            }
+            else if (marcar > 5) {
+                lin = 2;
+            }
+            else {
+                lin = 1;
+            }
+
+            if (marcar === 0 || marcar === 3 || marcar === 6) {
+                col = 0;
+            }
+            else if (marcar === 1 || marcar == 4 || marcar == 7) {
+                col = 1;
+            }
+            else {
+                col = 2;
+            }
+
+        }   
+    }
+    
+    // Jogar para evitar derrota
+    else if (impossivel && aleatorio < 70) {
+        if (derrota !== -1) {
+            console.log("Evitando derrota")
+            let linha = jogo.posvenc[derrota];
+            
+            for (let v of linha){
+                if (lista[v] === 0){
+                    marcar = v;
+                }
+            }
+
+            if (marcar < 3) {
+                lin = 0;
+            }
+            else if (marcar > 5) {
+                lin = 2;
+            }
+            else {
+                lin = 1;
+            }
+
+            if (marcar === 0 || marcar === 3 || marcar === 6) {
+                col = 0;
+            }
+            else if (marcar === 1 || marcar == 4 || marcar == 7) {
+                col = 1;
+            }
+            else {
+                col = 2;
+            }
+        }
+    }
+
+    // Jogar aleatório
+    else {
+        // Esse "do" executa o while pela primeira vez sem fazer o teste do while. Só faz o teste quando a primeira vez termina. Ele está buscando uma
+        // matriz vazia para que o cpu possa jogar. Só parará de repetir quando um espaço vázio for encontrado.
+        do {   // gera na matriz (lin, col) uma posição vazia (0)
+            console.log("Jogando aleatório")
+            lin = Math.floor(Math.random() * 3);  // gera uma linha de 0 a 2
+            col = Math.floor(Math.random() * 3);  // gera uma coluna de 0 a 2
+        } while (jogo.matriz[lin][col] !== 0);{   // enquanto diferente de vazio (0)
+
+        }  
+    }
+
+
+    // INSERÇÃO DE MARCAÇÃO
+    
+    som(snd_click, 1, 1.2);
+    let bt = lin * 3 + col;  // calcula qual botão foi "escolhido" pela cpu
+    // A linha acima serve para saber qual vai ser o número do id no html. Linha foi multiplicada porque os IDs "b" foram contados da esquerda
+    // para a direita. A cada linha pula 3 números.
+    document.getElementById('b' + bt).innerHTML = 'O';  // insere círculo (O) na posição 
+    jogo.matriz[lin][col] = 5;  // insere na matriz (lin, col) o valor 5 (cpu)
+    jogo.jogador = 1;  // usuário (1) é o próximo a jogar
+    jogo.rodadas++;  // uma rodada a mais
+    console.log(vitoria);
+    console.log(derrota);
+    fimJogo();  // verifica fim do jogo após a jogada da cpu
+}
+
+
+
+function cronometro() {
+    // Essa função é executada a cada 1 segundo por causa da primeira linha da função inicio().
+    cron.seg++;  // incrementa os segundos - adiciona 1 aos segundos.
+    if (cron.seg === 60) {  // verifica se seg chegou a 60
+        cron.min++;  // incrementa os minutos
+        cron.seg = 0;  // reinicia os segundos (zero)
+    }
+    m = cron.min < 10 ? '0' + cron.min : '' + cron.min;  // acrescenta um 0 à esq. se < 10
+    s = cron.seg < 10 ? '0' + cron.seg : '' + cron.seg;
+    // Esse ponto de interrogação no meio do código se chama operador ternário. É como um if pelo que encontrei na minha rápida pesquisa. O que vem
+    // primeiro é caso a condição seja true. O que vem depois é caso o teste resulte em false.
+    document.getElementById('cron').innerHTML = m + ':' + s;
+}
+
+
+
+function fimJogo() {
+    jogo.nrovenc = -1;
+    let fim = false;
+    // Somas das linhas, colunas e diagonais
+    let somas = [];// Array para armazenar resultados
+    somas.push(jogo.matriz[0][0] + jogo.matriz[0][1] + jogo.matriz[0][2]); // Aqui ele começa a "puxar" os valores marcados. Lembrando que cada marcação
+    somas.push(jogo.matriz[1][0] + jogo.matriz[1][1] + jogo.matriz[1][2]); // de X ele considerou como 1, e cada marcação de O vale 5.
+    somas.push(jogo.matriz[2][0] + jogo.matriz[2][1] + jogo.matriz[2][2]); // O que está dentro do push é o que a array somas vai receber, no caso foram
+    somas.push(jogo.matriz[0][0] + jogo.matriz[1][0] + jogo.matriz[2][0]); // algumas somas (nome bem intuitivo né).
+    somas.push(jogo.matriz[0][1] + jogo.matriz[1][1] + jogo.matriz[2][1]);
+    somas.push(jogo.matriz[0][2] + jogo.matriz[1][2] + jogo.matriz[2][2]);
+    somas.push(jogo.matriz[0][0] + jogo.matriz[1][1] + jogo.matriz[2][2]);
+    somas.push(jogo.matriz[0][2] + jogo.matriz[1][1] + jogo.matriz[2][0]);
+
+    // Aqui abaixo ele passa a fazer testes para ver se alguém ganhou o jogo.
+    //Ele entra em cada dado da array somas utilizando um for que se repete 8 vezes
+    for (let i = 0; i < 8; i++) {
+        if (somas[i] === 3) {  // soma 3 indica X como ganhador
+            som(snd_palmas, 0.8, 1);
+            jogo.nrovenc = i;  // armazena a linha, coluna ou diagonal do vencedor (usuário)
+            fim = true;
+        } else if (somas[i] === 15) {  // soma 15 indica O como ganhador
+            som(snd_risada, 1, 1.4);
+            jogo.nrovenc = i;  // armazena a linha, coluna ou diagonal do vencedor (cpu)
+            fim = true;
+        }
+    } // fim do for
+
+    if (jogo.rodadas === 9)  // verifica se foi a última rodada e termina o jogo
+        fim = true;
+
+    if (fim) {
+        resultado();  // mostra o resultado
+        clearInterval(cron.tempo);  // pausa o cronômetro
+        jogo.jogador = -1;  // jogo é pausado
+    }
+
+    else if (jogo.jogador == 2)  // verifica se o próximo jogador é a cpu
+        setTimeout(cpu, 2000);  // agenda a jogada da CPU para 2 segundos a partir desse momento
+}
+
+function resultado() {
+    for (let i = 0; i < 9; i++) {  // define cinza para todos os botões (matriz de jogo)
+        document.getElementById('b' + i).style.backgroundColor = 'gray';
+    }
+    if (jogo.nrovenc !== -1) {  // verifica se houve vencedor
+        for (let bt of jogo.posvenc[jogo.nrovenc]) {  // altera a cor da lin, col ou diag vencedora
+            // Essa parte está bem complicada. Pelo que entendi, posvenc é uma matriz que contém listas das posições vencedoras. O nrovenc vai ser o
+            // índice que representa dentro da matriz posvenc qual é exatamente as posições que fizeram esse jogador vencer.
+            document.getElementById('b' + bt).style.backgroundColor = 'orange';
+        }
+    }
+}
+
+// Para quando clicar em iniciar aparecer um 3 gigante em cada botão, o debaixo é mesma coisa com 2 e o último e com 1.
+// É muito interessante por que no final de uma função ele chama outra.
+function inicio3() {
+    for (let i = 0; i < 9; i++) {
+        document.getElementById('b' + i).innerHTML = '3';
+    }
+    setTimeout(inicio2, 1000);  // agenda a função inicio2 para 1 seg depois
+}
+
+function inicio2() {
+    for (let i = 0; i < 9; i++) {
+        document.getElementById('b' + i).innerHTML = '2';
+    }
+    setTimeout(inicio1, 1000);  // agenda a função inicio1 para 1 seg depois
+}
+
+function inicio1() {
+    for (let i = 0; i < 9; i++) {
+        document.getElementById('b' + i).innerHTML = '1';
+    }
+    setTimeout(inicio, 1000);  // agenda a função inicio para 1 seg depois
+}
+
+// O início1 acima chama esse aqui. Ele faz muitas coisas: inicia o cronometro, sorteia quem vai jogar, faz todas as matrizes receberem 0, conta rodadas,
+// dá valor de empate ou em jogo para a partida, limpa os textos dos botões e se a cpu for sorteada ele já chama ativa ela para fazer uma jogada.
+function inicio() {
+    cron.tempo = setInterval(cronometro, 1000);  // inicia a função cronometro a cada 1 seg.
+    jogo.jogador = Math.floor(Math.random() * 2 + 1);  // sorteia quem inicia o jogo (1 ou 2)
+    jogo.matriz = [[0, 0, 0],
+                   [0, 0, 0], 
+                   [0, 0, 0]];  // 0: vazio, 1: X e 5: O
+    jogo.rodadas = 0;
+    jogo.nrovenc = -1;  // -1 indica empate ou em jogo
+    for (let i = 0; i < 9; i++) {  // apaga o conteúdos dos botôes (matriz de jogo)
+        document.getElementById('b' + i).innerHTML = '';
+    }
+    if (jogo.jogador === 2)  // se a cpu inicia, agenda a joga da cpu para 0,1 seg.
+        setTimeout(cpu, 100);
+}
+
+// Sons do jogo
+function som(psom, pvol, pvel) { // Essa linha é um pouco complicada, entendi ela observando o uso dos sons no fimJogo(). Quando chamarmos essa função
+    // som, ela deve apresentar esses 3 parâmetros dentro nessa ordem: som que será ativado, volume desse som e velocidade de reprodução.
+	let snd = new Audio(psom);
+	snd.playbackRate = pvel; // Imagino que seja a velocidade do som.
+    snd.volume = pvol; // Volume do som.
+	snd.play();
+}
